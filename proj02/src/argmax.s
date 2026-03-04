@@ -32,7 +32,7 @@ loop_start:
 loop_continue:
     addi t3, t3, 1
     addi t4, t4, 4
-    j loop_start
+
 loop_end:
     mv a0,t0
 
