@@ -283,24 +283,36 @@ class TestReadMatrix(TestCase):
 
 class TestWriteMatrix(TestCase):
 
-    def do_write_matrix(self, fail='', code=0):
+    def do_write_matrix(self,outfile,comfile,result,row,col, fail='', code=0):
         t = AssemblyTest(self, "write_matrix.s")
-        outfile = "outputs/test_write_matrix/student.bin"
         # load output file name into a0 register
         t.input_write_filename("a0", outfile)
         # load input array and other arguments
-        raise NotImplementedError("TODO")
-        # TODO
+        ina = t.array(result)
+        t.input_array("a1",ina)
+        t.input_scalar("a2",row)
+        t.input_scalar("a3",col)
         # call `write_matrix` function
         t.call("write_matrix")
         # generate assembly and run it through venus
         t.execute(fail=fail, code=code)
         # compare the output file against the reference
-        t.check_file_output(outfile, "outputs/test_write_matrix/reference.bin")
+        t.check_file_output(outfile, comfile)
 
     def test_simple(self):
-        self.do_write_matrix()
-
+        self.do_write_matrix("outputs/test_write_matrix/student.bin",
+                             "outputs/test_write_matrix/reference.bin",
+                             [1,2,3,4,5,6,7,8,9],3,3)
+    def test_complex1(self):
+        self.do_write_matrix("outputs/test_write_matrix/o1.bin",
+                             "outputs/test_write_matrix/student2.bin",
+                             [1,2,3,4,5,6,7,8,9],1,9)
+        
+    def test_complex2(self):
+        self.do_write_matrix("outputs/test_write_matrix/o2.bin",
+                             "outputs/test_write_matrix/student3.bin",
+                             [-1,-2,-3,-4,-5,-6,-7,-8,-9],9,1)
+        
     @classmethod
     def tearDownClass(cls):
         print_coverage("write_matrix.s", verbose=False)
