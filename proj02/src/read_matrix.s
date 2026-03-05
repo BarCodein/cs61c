@@ -91,6 +91,7 @@ Loop:
     j Loop
 
 Loop_end:
+    jal fclose
     mv a0, s1
     lw ra, 0(sp)
     lw s0, 4(sp)
