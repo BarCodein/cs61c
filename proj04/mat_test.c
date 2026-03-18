@@ -18,8 +18,10 @@ void add_test(void) {
     CU_ASSERT_EQUAL(allocate_matrix(&mat2, 2, 2), 0);
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 2; j++) {
-            set(mat1, i, j, i * 2 + j);
+			set(mat1, i, j, i * 2 + j);
             set(mat2, i, j, i * 2 + j);
+			CU_ASSERT_EQUAL(get(mat1, i, j), (i * 2 + j));
+
         }
     }
     add_matrix(result, mat1, mat2);
@@ -189,7 +191,7 @@ void alloc_ref_test(void) {
     }
     /* 2D slice */
     CU_ASSERT_EQUAL(allocate_matrix_ref(&mat1, from, 1, 0, 2, 2), 0);
-    CU_ASSERT_PTR_EQUAL(mat1->parent, from);
+	CU_ASSERT_PTR_EQUAL(mat1->parent, from);
     CU_ASSERT_EQUAL(mat1->parent->ref_cnt, 2);
     CU_ASSERT_EQUAL(mat1->rows, 2);
     CU_ASSERT_EQUAL(mat1->cols, 2);
@@ -211,7 +213,7 @@ void alloc_ref_test(void) {
         }
     }
     /* Now we compare the data in the reference matrix */
-    deallocate_matrix(from);
+	deallocate_matrix(from);    
     deallocate_matrix(mat1);
     deallocate_matrix(mat2);
 }

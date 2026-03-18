@@ -58,7 +58,30 @@ void rand_matrix(matrix *result, unsigned int seed, double low, double high) {
  * Return 0 upon success and non-zero upon failure.
  */
 int allocate_matrix(matrix **mat, int rows, int cols) {
-    /* TODO: YOUR CODE HERE */
+    if (rows <=0 || cols <= 0)
+		return -1;
+	struct matrix *demat;
+    demat = *mat;
+    demat = (matrix *) calloc(1,sizeof(matrix));
+	if (demat == NULL)
+		return -1;
+    demat->cols = cols;
+    demat->rows = rows;
+	demat->data = (double **) calloc(rows , sizeof(double *));
+	if (demat->data == NULL)
+		return -1;
+	for(int i=0;i<rows;i++){
+		*(demat->data+i) = (double *) calloc(cols , sizeof(double));
+		if (*(demat->data+i) == NULL)
+			return -1;
+	}
+	demat->is_1d = 0;
+	if (cols == 1 || rows == 1)
+		demat->is_1d = 1;
+	demat->ref_cnt = 0;
+	demat->parent = NULL;
+	*(mat) = demat;
+	return 0;
 }
 
 /*
@@ -70,7 +93,42 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
  */
 int allocate_matrix_ref(matrix **mat, matrix *from, int row_offset, int col_offset,
                         int rows, int cols) {
-    /* TODO: YOUR CODE HERE */
+	int mcols,mrows;
+	mcols = from->cols;
+	mrows = from->rows;
+
+	if (row_offset <0 || col_offset<0)
+		return -1;
+	if (rows <= 0 || cols <= 0)
+		return -1;
+	if (mrows-row_offset-rows<0 || mcols-col_offset-cols<0)
+		return -1;
+	struct matrix *demat;
+    demat = *mat;
+    demat = (matrix *) calloc(1,sizeof(matrix));
+	if (demat == NULL)
+		return -1;
+    demat->cols = cols;
+    demat->rows = rows;
+	demat->data = (double **) calloc(rows , sizeof(double *));
+	if (demat->data == NULL)
+		return -1;
+	for(int i=0;i<rows;i++){
+		*(demat->data+i) = (double *) calloc(cols , sizeof(double));
+		if (*(demat->data+i) == NULL)
+			return -1;
+	}
+	demat->is_1d = 0;
+	if (cols == 1 || rows == 1)
+		demat->is_1d = 1;
+	for(int i=0;i<rows;i++){
+		int x=row_offset+i;
+		*(demat->data+i) = *(from->data+x);
+	}
+	demat->parent = from;
+	from->ref_cnt += 1;
+	*mat = demat;
+	return 0;
 }
 
 /*
@@ -81,7 +139,15 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int row_offset, int col_offs
  * See the spec for more information.
  */
 void deallocate_matrix(matrix *mat) {
-    /* TODO: YOUR CODE HERE */
+	if (mat==NULL)
+		return;
+	if (mat->ref_cnt == 0)
+		for(int i=0;i<mat->rows;i++)
+			free(*(mat->data+i));
+	if (mat->parent != NULL)
+		((mat->parent)->ref_cnt)--;
+	free(mat->data);
+	free(mat);
 }
 
 /*
@@ -89,7 +155,7 @@ void deallocate_matrix(matrix *mat) {
  * You may assume `row` and `col` are valid.
  */
 double get(matrix *mat, int row, int col) {
-    /* TODO: YOUR CODE HERE */
+	return *(*(mat->data+row)+col);
 }
 
 /*
@@ -97,14 +163,18 @@ double get(matrix *mat, int row, int col) {
  * `col` are valid
  */
 void set(matrix *mat, int row, int col, double val) {
-    /* TODO: YOUR CODE HERE */
+	*(*(mat->data+row)+col) = val;
+
 }
 
 /*
  * Set all entries in mat to val
  */
 void fill_matrix(matrix *mat, double val) {
-    /* TODO: YOUR CODE HERE */
+	for(int i=0;i<mat->rows;i++)
+		for(int j=0;j<mat->cols;j++)	
+			*(*(mat->data+i)+j) = val;
+			
 }
 
 /*
@@ -112,7 +182,16 @@ void fill_matrix(matrix *mat, double val) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
-    /* TODO: YOUR CODE HERE */
+	int rows = mat1->rows;
+	int cols = mat1->cols;
+	for(int i=0;i<rows;i++)
+		for(int j=0;j<cols;j++){
+			int a,b;
+			a = get(mat1,i,j);
+			b = get(mat2,i,j);
+			set(result,i,j,a+b);
+		}
+	return 0;
 }
 
 /*
@@ -120,7 +199,17 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
-    /* TODO: YOUR CODE HERE */
+	int rows = mat1->rows;
+	int cols = mat1->cols;
+	for(int i=0;i<rows;i++)
+		for(int j=0;j<cols;j++){
+			int a,b;
+			a = get(mat1,i,j);
+			b = get(mat2,i,j);
+			set(result,i,j,a-b);
+		}
+	return 0;
+
 }
 
 /*
@@ -129,7 +218,22 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Remember that matrix multiplication is not the same as multiplying individual elements.
  */
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
-    /* TODO: YOUR CODE HERE */
+	int rows = mat1->rows;
+	int cols = mat2->cols;
+	int num = mat1->cols;
+	if (mat1->cols != mat2->rows)
+		return -1;
+	for(int i=0;i<rows;i++)
+		for(int j=0;j<cols;j++){
+			int sum=0;
+			for(int k=0;k<num;k++){
+				int a = get(mat1,i,k);
+				int b = get(mat2,k,j);
+				sum += a*b;
+			}
+			set(result,i,j,sum);
+		}
+	return 0;
 }
 
 /*
@@ -138,7 +242,30 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Remember that pow is defined with matrix multiplication, not element-wise multiplication.
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
-    /* TODO: YOUR CODE HERE */
+	if (mat->rows != mat->cols)
+		return -1;
+	if (pow == 1){
+		matrix *I;
+		if (allocate_matrix(&I,mat->rows,mat->cols) == -1)
+			return -1;
+		for(int i=0;i<mat->rows;i++)
+			set(I,i,i,1);
+		if (mul_matrix(result,I,mat) == -1)
+			return -1;
+	}
+	else{
+		matrix *prere;
+		if (allocate_matrix(&prere,mat->rows,mat->cols) == -1)
+			return -1;
+		
+		if ((pow_matrix(prere,mat,pow-1) == -1))
+			return -1;
+		if ((mul_matrix(result,mat,prere) == -1))
+			return -1;
+		deallocate_matrix(prere);
+	}
+
+	return 0;
 }
 
 /*
@@ -146,7 +273,16 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int neg_matrix(matrix *result, matrix *mat) {
-    /* TODO: YOUR CODE HERE */
+	int rows = mat->rows;
+	int cols = mat->cols;
+	for(int i=0;i<rows;i++)
+		for(int j=0;j<cols;j++){
+			int a;
+			a = get(mat,i,j);
+			set(result,i,j,-a);
+		}
+	return 0;
+
 }
 
 /*
@@ -154,6 +290,14 @@ int neg_matrix(matrix *result, matrix *mat) {
  * Return 0 upon success and a nonzero value upon failure.
  */
 int abs_matrix(matrix *result, matrix *mat) {
-    /* TODO: YOUR CODE HERE */
+	int rows = mat->rows;
+	int cols = mat->cols;
+	for(int i=0;i<rows;i++)
+		for(int j=0;j<cols;j++){
+			int a;
+			a = get(mat,i,j);
+			set(result,i,j,abs(a));
+		}
+	return 0;
 }
 
