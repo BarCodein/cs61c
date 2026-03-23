@@ -78,6 +78,12 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
 	demat->is_1d = 0;
 	if (cols == 1 || rows == 1)
 		demat->is_1d = 1;
+	if (rows == 1){
+		int t;
+		t = cols;
+		cols = rows;
+		rows = t;
+	}
 	demat->ref_cnt = 0;
 	demat->parent = NULL;
 	*(mat) = demat;

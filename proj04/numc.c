@@ -338,7 +338,7 @@ PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     matrix *c;
     allocate_matrix(&c,a->rows,b->cols);
     mul_matrix(c,a,b);
-    Matrix61c *result;
+    Matrix61c *result = (Matrix61c *) Matrix61c_new(&Matrix61cType,NULL,NULL);
     result->mat = c;
     result->shape = get_shape(c->rows,c->cols);
     return (PyObject *)result;
@@ -353,7 +353,7 @@ PyObject *Matrix61c_neg(Matrix61c* self) {
     matrix *c;
     allocate_matrix(&c,a->rows,a->cols);
     neg_matrix(c,a);
-    Matrix61c *result;
+    Matrix61c *result = (Matrix61c *) Matrix61c_new(&Matrix61cType,NULL,NULL);
     result->mat = c;
     result->shape = get_shape(c->rows,c->cols);
     return (PyObject *)result;
@@ -382,7 +382,7 @@ PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
     if (PyObject_TypeCheck(pow,&PyLong_Type) == 0)
         PyErr_SetString(PyExc_TypeError,"Type_Error");
     int power;
-    power = PyLong_AsLong(pow);
+    power = (int)PyLong_AsLong(pow);
     matrix *a;
     a = ((Matrix61c *)self)->mat;
     if (a->cols != a->rows || power <0)
@@ -390,7 +390,7 @@ PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
     matrix *c;
     allocate_matrix(&c,a->rows,a->cols);
     pow_matrix(c,a,power);
-    Matrix61c *result;
+    Matrix61c *result = (Matrix61c *) Matrix61c_new(&Matrix61cType,NULL,NULL);
     result->mat = c;
     result->shape = get_shape(c->rows,c->cols);
     return (PyObject *)result;
@@ -401,7 +401,13 @@ PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
  * define. You might find this link helpful: https://docs.python.org/3.6/c-api/typeobj.html
  */
 PyNumberMethods Matrix61c_as_number = {
-    /* TODO: YOUR CODE HERE */
+    .nb_add = Matrix61c_add,
+    .nb_subtract = Matrix61c_sub,
+    .nb_multiply = Matrix61c_multiply,
+    .nb_negative = Matrix61c_neg,
+    .nb_power = Matrix61c_pow,
+    .nb_absolute = Matrix61c_abs
+
 };
 
 
@@ -412,7 +418,32 @@ PyNumberMethods Matrix61c_as_number = {
  * Return None in Python (this is different from returning null).
  */
 PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
-    /* TODO: YOUR CODE HERE */
+    if (!PyTuple_Check(args))
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    if (PyTuple_Size(args)!=3)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    PyObject *pi,*pj,*pval;
+    pi = PyTuple_GetItem(args,0);
+    pj = PyTuple_GetItem(args,1);
+    pval = PyTuple_GetItem(args,2);
+    if (PyObject_TypeCheck(pi,&PyLong_Type) == 0)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    if (PyObject_TypeCheck(pj,&PyLong_Type) == 0)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    if (PyObject_TypeCheck(pval,&PyFloat_Type) == 0)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    int i,j;
+    double val;
+    i = (int)PyLong_AsLong(pi);
+    j = (int)PyLong_AsLong(pj);
+    val = PyFloat_AsDouble(pval);
+    int rows, cols;
+    rows = self->mat->rows;
+    cols = self->mat->cols;
+    if (i<0 || i>=rows || j<0 || j>=cols)
+        PyErr_SetString(PyExc_IndexError,"index out of range");
+    set(self->mat,i,j,val);
+    return (PyObject *)self;
 }
 
 /*
@@ -421,7 +452,28 @@ PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
  * float/int.
  */
 PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
-    /* TODO: YOUR CODE HERE */
+    if (!PyTuple_Check(args))
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    if (PyTuple_Size(args)!=2)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    PyObject *pi,*pj;
+    pi = PyTuple_GetItem(args,0);
+    pj = PyTuple_GetItem(args,1);
+    if (PyObject_TypeCheck(pi,&PyLong_Type) == 0)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    if (PyObject_TypeCheck(pj,&PyLong_Type) == 0)
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    int i,j;
+    double *val;
+    i = (int)PyLong_AsLong(pi);
+    j = (int)PyLong_AsLong(pj);
+    int rows, cols;
+    rows = self->mat->rows;
+    cols = self->mat->cols;
+    if (i<0 || i>=rows || j<0 || j>=cols)
+        PyErr_SetString(PyExc_IndexError,"index out of range");
+    *val = get(self->mat,i,j);
+    return (PyObject *)val;
 }
 
 /*
@@ -430,9 +482,11 @@ PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
  * as "set"
  * You might find this link helpful: https://docs.python.org/3.6/c-api/structures.html
  */
+/* TODO: YOUR CODE HERE */
 PyMethodDef Matrix61c_methods[] = {
-    /* TODO: YOUR CODE HERE */
-    {NULL, NULL, 0, NULL}
+    //{"set", Matrix61c_set_value, METH_VARARGS, NULL},
+    {"get", Matrix61c_get_value, METH_VARARGS, "get value of (i,j)"}
+
 };
 
 /* INDEXING */
@@ -442,6 +496,53 @@ PyMethodDef Matrix61c_methods[] = {
  */
 PyObject *Matrix61c_subscript(Matrix61c* self, PyObject* key) {
     /* TODO: YOUR CODE HERE */
+    if (!PyTuple_Check(key))
+        PyErr_SetString(PyExc_TypeError,"Type_Error");
+    int t_size;
+    t_size = PyTuple_Size(key);
+    if (t_size!=2 && t_size!=1)
+        PyErr_SetString(PyExc_IndexError,"IndexError");
+    if (self->mat->is_1d == 1 && t_size==2)
+        PyErr_SetString(PyExc_IndexError,"IndexError");
+    int rows, cols;
+    rows = self->mat->rows;
+    cols = self->mat->cols;
+    PyObject *prows, *pcols;
+    PyArg_UnpackTuple(key,"f",1,2,&prows,&pcols);
+    int r_start,r_stop,c_start,c_stop;
+    if (PyObject_TypeCheck(prows,&PyLong_Type)){
+        r_start = (int)PyLong_AsLong(prows);
+        r_stop = r_start+1;
+    }
+    if (PyObject_TypeCheck(prows,&PySlice_Type)){
+        PySlice_GetIndices(key,rows,&r_start,&r_stop,NULL);
+    }
+    matrix *result;
+    if (self->mat->is_1d){
+        allocate_matrix_ref(&result,self->mat,1,r_stop-r_start,0,r_start);
+        
+    }
+    else{
+        if (pcols==NULL){
+            c_start = 0;
+            c_stop = cols;
+        }
+        else{
+            if (PyObject_TypeCheck(pcols,&PyLong_Type)){
+                c_start = (int)PyLong_AsLong(pcols);
+                c_stop = c_start+1;
+            }
+            if (PyObject_TypeCheck(pcols,&PySlice_Type)){
+                PySlice_GetIndices(key,cols,&c_start,&c_stop,NULL);
+            }
+        }
+        allocate_matrix_ref(result,self->mat,r_stop-r_start,
+            c_stop-c_start,c_start,c_stop);
+    }
+    Matrix61c *remat = (Matrix61c *) Matrix61c_new(&Matrix61cType,NULL,NULL);
+    remat->mat = result;
+    remat->shape = get_shape(result->rows,result->cols);
+    return (PyObject *)remat;
 }
 
 /*
