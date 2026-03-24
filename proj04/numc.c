@@ -493,6 +493,28 @@ PyMethodDef Matrix61c_methods[] = {
 };
 
 /* INDEXING */
+int slice(PyObject *p,int length,int *start,int *stop){
+    Py_ssize_t t_start,t_stop;
+    if (p==NULL){
+        *start = 0;
+        *stop = length;
+        return 0;
+    }
+    if (PyLong_Check(p)){
+        t_start = (int)PyLong_AsLong(p);
+        t_stop = t_start+1;
+    }
+    else if (PySlice_Check(p)){
+        int t;
+        PySlice_GetIndices(p,length,&t_start,&t_stop,&t);
+    }
+    else
+        PyErr_SetString(PyExc_ValueError, 
+            "Incorrect input");
+    *start = t_start;
+    *stop = t_stop;
+    return 0;
+}
 
 int parse(PyObject* key,int rows,int cols,int *rstart,
         int *rstop,int *cstart,int *cstop){
@@ -516,29 +538,9 @@ int parse(PyObject* key,int rows,int cols,int *rstart,
         prows = key;
     }
     
-    int r_start,r_stop,c_start,c_stop;
-    if (PyLong_Check(prows)){
-        r_start = (int)PyLong_AsLong(prows);
-        r_stop = r_start+1;
-    }
-    if (PySlice_Check(prows)){
-        int t;
-        PySlice_GetIndices(prows,rows,&r_start,&r_stop,&t);
-    }
-    if (pcols==NULL){
-        c_start = 0;
-        c_stop = cols;
-    }
-    else{
-        if (PyLong_Check(pcols)){
-            c_start = (int)PyLong_AsLong(pcols);
-            c_stop = c_start+1;
-        }
-        if (PySlice_Check(pcols)){
-            int t;
-            PySlice_GetIndices(pcols,cols,&c_start,&c_stop,&t);
-        }
-    }
+    Py_ssize_t r_start,r_stop,c_start,c_stop;
+    slice(prows,rows,&r_start,&r_stop);
+    slice(pcols,cols,&c_start,&c_stop);
     *rstart = r_start;
     *rstop = r_stop;
     *cstart = c_start;
@@ -558,7 +560,7 @@ matrix *subsript(Matrix61c* self, PyObject* key){
     
     int r_start,r_stop,c_start,c_stop;
     parse(key,rows,cols,&r_start,&r_stop,&c_start,&c_stop);
-    
+
     matrix *result;
     if (self->mat->is_1d){
         if (rows==1)
@@ -648,7 +650,7 @@ int set_2d(matrix *mat,PyObject *lst) {
 int Matrix61c_set_subscript(Matrix61c* self, PyObject *key, PyObject *v) {
     matrix *mat;
     mat = subsript(self,key);
-
+    int r_start,r_stop,c_start,c_stop;
     return 0;
 }
 
