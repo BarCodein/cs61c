@@ -78,13 +78,7 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
 	demat->is_1d = 0;
 	if (cols == 1 || rows == 1)
 		demat->is_1d = 1;
-	if (rows == 1){
-		int t;
-		t = cols;
-		cols = rows;
-		rows = t;
-	}
-	demat->ref_cnt = 0;
+	demat->ref_cnt = 1;
 	demat->parent = NULL;
 	*(mat) = demat;
 	return 0;
@@ -136,6 +130,25 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int row_offset, int col_offs
 	*mat = demat;
 	return 0;
 }
+void deallocate_matrix_helper(matrix *mat){
+	if (mat==NULL)
+		return;
+	
+	if (mat->ref_cnt!=0)
+		return;
+
+	if (mat->ref_cnt==0 && mat->parent==NULL){
+		for(int i=0;i<mat->rows;i++)
+			free(*(mat->data+i));
+		free(mat->data);
+		free(mat);
+		return;
+	}
+	((mat->parent)->ref_cnt)--;
+	deallocate_matrix_helper(mat->parent);
+	free(mat->data);
+	free(mat);
+}
 
 /*
  * This function will be called automatically by Python when a numc matrix loses all of its
@@ -145,13 +158,22 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int row_offset, int col_offs
  * See the spec for more information.
  */
 void deallocate_matrix(matrix *mat) {
+	
 	if (mat==NULL)
 		return;
-	if (mat->ref_cnt == 0)
+	(mat->ref_cnt)--;
+	if (mat->ref_cnt!=0)
+		return;
+
+	if (mat->ref_cnt==0 && mat->parent==NULL){
 		for(int i=0;i<mat->rows;i++)
 			free(*(mat->data+i));
-	if (mat->parent != NULL)
-		((mat->parent)->ref_cnt)--;
+		free(mat->data);
+		free(mat);
+		return;
+	}
+	((mat->parent)->ref_cnt)--;
+	deallocate_matrix_helper(mat->parent);
 	free(mat->data);
 	free(mat);
 }
@@ -161,7 +183,9 @@ void deallocate_matrix(matrix *mat) {
  * You may assume `row` and `col` are valid.
  */
 double get(matrix *mat, int row, int col) {
-	return *(*(mat->data+row)+col);
+	double result;
+	result = *((*(mat->data+row))+col);
+	return result;
 }
 
 /*
@@ -170,7 +194,6 @@ double get(matrix *mat, int row, int col) {
  */
 void set(matrix *mat, int row, int col, double val) {
 	*(*(mat->data+row)+col) = val;
-
 }
 
 /*

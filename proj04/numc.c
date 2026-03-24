@@ -423,15 +423,15 @@ PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
     if (PyTuple_Size(args)!=3)
         PyErr_SetString(PyExc_TypeError,"Type_Error");
     PyObject *pi,*pj,*pval;
-    pi = PyTuple_GetItem(args,0);
+    pi = PyTuple_GetItem(args,0);  
     pj = PyTuple_GetItem(args,1);
     pval = PyTuple_GetItem(args,2);
     if (PyObject_TypeCheck(pi,&PyLong_Type) == 0)
-        PyErr_SetString(PyExc_TypeError,"Type_Error");
+        PyErr_SetString(PyExc_TypeError,"i:Type_Error");
     if (PyObject_TypeCheck(pj,&PyLong_Type) == 0)
-        PyErr_SetString(PyExc_TypeError,"Type_Error");
+        PyErr_SetString(PyExc_TypeError,"j:Type_Error");
     if (PyObject_TypeCheck(pval,&PyFloat_Type) == 0)
-        PyErr_SetString(PyExc_TypeError,"Type_Error");
+        PyErr_SetString(PyExc_TypeError,"val:Type_Error");
     int i,j;
     double val;
     i = (int)PyLong_AsLong(pi);
@@ -443,7 +443,7 @@ PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
     if (i<0 || i>=rows || j<0 || j>=cols)
         PyErr_SetString(PyExc_IndexError,"index out of range");
     set(self->mat,i,j,val);
-    return (PyObject *)self;
+    return Py_None;
 }
 
 /*
@@ -464,7 +464,6 @@ PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
     if (PyObject_TypeCheck(pj,&PyLong_Type) == 0)
         PyErr_SetString(PyExc_TypeError,"Type_Error");
     int i,j;
-    double *val;
     i = (int)PyLong_AsLong(pi);
     j = (int)PyLong_AsLong(pj);
     int rows, cols;
@@ -472,8 +471,11 @@ PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
     cols = self->mat->cols;
     if (i<0 || i>=rows || j<0 || j>=cols)
         PyErr_SetString(PyExc_IndexError,"index out of range");
-    *val = get(self->mat,i,j);
-    return (PyObject *)val;
+    get(self->mat,i,j);
+    double t;
+    t = get(self->mat,i,j);
+    PyObject *py_float = PyFloat_FromDouble(t);
+    return (PyObject *)py_float;
 }
 
 /*
@@ -484,43 +486,108 @@ PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
  */
 /* TODO: YOUR CODE HERE */
 PyMethodDef Matrix61c_methods[] = {
-    //{"set", Matrix61c_set_value, METH_VARARGS, NULL},
-    {"get", Matrix61c_get_value, METH_VARARGS, "get value of (i,j)"}
+    {"set", (PyCFunction)Matrix61c_set_value, METH_VARARGS, "NULL"},
+    {"get", Matrix61c_get_value, METH_VARARGS, "get value of (i,j)"},
+    {NULL,NULL,0,NULL}
 
 };
 
 /* INDEXING */
 
-/*
- * Given a numc.Matrix `self`, index into it with `key`. Return the indexed result.
- */
-PyObject *Matrix61c_subscript(Matrix61c* self, PyObject* key) {
-    /* TODO: YOUR CODE HERE */
-    if (!PyTuple_Check(key))
-        PyErr_SetString(PyExc_TypeError,"Type_Error");
-    int t_size;
-    t_size = PyTuple_Size(key);
-    if (t_size!=2 && t_size!=1)
-        PyErr_SetString(PyExc_IndexError,"IndexError");
-    if (self->mat->is_1d == 1 && t_size==2)
-        PyErr_SetString(PyExc_IndexError,"IndexError");
+int parse(PyObject* key,int rows,int cols,int *rstart,
+        int *rstop,int *cstart,int *cstop){
+    PyObject *prows, *pcols;
+    prows = NULL;
+    pcols = NULL;
+    if (PyTuple_Check(key)){
+        int t_size;
+        t_size = PyTuple_Size(key);
+        if (t_size!=2 && t_size!=1)
+            PyErr_SetString(PyExc_IndexError,"IndexError");
+
+        if(!PyArg_UnpackTuple(key,"f",1,2,&prows,&pcols))
+            PyErr_SetString(PyExc_RuntimeError,"IndexError");
+        
+        prows = PyTuple_GetItem(key,0);
+        if(t_size == 2)
+            pcols = PyTuple_GetItem(key,1);
+    }
+    else{
+        prows = key;
+    }
+    
+    int r_start,r_stop,c_start,c_stop;
+    if (PyLong_Check(prows)){
+        r_start = (int)PyLong_AsLong(prows);
+        r_stop = r_start+1;
+    }
+    if (PySlice_Check(prows)){
+        int t;
+        PySlice_GetIndices(prows,rows,&r_start,&r_stop,&t);
+    }
+    if (pcols==NULL){
+        c_start = 0;
+        c_stop = cols;
+    }
+    else{
+        if (PyLong_Check(pcols)){
+            c_start = (int)PyLong_AsLong(pcols);
+            c_stop = c_start+1;
+        }
+        if (PySlice_Check(pcols)){
+            int t;
+            PySlice_GetIndices(pcols,cols,&c_start,&c_stop,&t);
+        }
+    }
+    *rstart = r_start;
+    *rstop = r_stop;
+    *cstart = c_start;
+    *cstop = c_stop;
+    return 0;
+}
+
+matrix *subsript(Matrix61c* self, PyObject* key){
     int rows, cols;
     rows = self->mat->rows;
     cols = self->mat->cols;
     PyObject *prows, *pcols;
-    PyArg_UnpackTuple(key,"f",1,2,&prows,&pcols);
+    prows = NULL;
+    pcols = NULL;
+    if (PyTuple_Check(key)){
+        int t_size;
+        t_size = PyTuple_Size(key);
+        if (t_size!=2 && t_size!=1)
+            PyErr_SetString(PyExc_IndexError,"IndexError");
+        if (self->mat->is_1d == 1 && t_size==2)
+            PyErr_SetString(PyExc_IndexError,"IndexError");
+        
+
+        if(!PyArg_UnpackTuple(key,"f",1,2,&prows,&pcols))
+            PyErr_SetString(PyExc_RuntimeError,"IndexError");
+        
+        prows = PyTuple_GetItem(key,0);
+        if(t_size == 2)
+            pcols = PyTuple_GetItem(key,1);
+    }
+    else{
+        prows = key;
+    }
+    
     int r_start,r_stop,c_start,c_stop;
-    if (PyObject_TypeCheck(prows,&PyLong_Type)){
+    matrix *result;
+    if (PyLong_Check(prows)){
         r_start = (int)PyLong_AsLong(prows);
         r_stop = r_start+1;
     }
-    if (PyObject_TypeCheck(prows,&PySlice_Type)){
-        PySlice_GetIndices(key,rows,&r_start,&r_stop,NULL);
+    if (PySlice_Check(prows)){
+        int t;
+        PySlice_GetIndices(prows,rows,&r_start,&r_stop,&t);
     }
-    matrix *result;
     if (self->mat->is_1d){
-        allocate_matrix_ref(&result,self->mat,1,r_stop-r_start,0,r_start);
-        
+        if (rows==1)
+            allocate_matrix_ref(&result,self->mat,0,r_start,1,r_stop-r_start);
+        else
+            allocate_matrix_ref(&result,self->mat,r_start,0,r_stop-r_start,1);
     }
     else{
         if (pcols==NULL){
@@ -528,28 +595,101 @@ PyObject *Matrix61c_subscript(Matrix61c* self, PyObject* key) {
             c_stop = cols;
         }
         else{
-            if (PyObject_TypeCheck(pcols,&PyLong_Type)){
+            if (PyLong_Check(pcols)){
                 c_start = (int)PyLong_AsLong(pcols);
                 c_stop = c_start+1;
             }
-            if (PyObject_TypeCheck(pcols,&PySlice_Type)){
-                PySlice_GetIndices(key,cols,&c_start,&c_stop,NULL);
+            if (PySlice_Check(pcols)){
+                int t;
+                PySlice_GetIndices(pcols,cols,&c_start,&c_stop,&t);
             }
         }
-        allocate_matrix_ref(result,self->mat,r_stop-r_start,
-            c_stop-c_start,c_start,c_stop);
+        allocate_matrix_ref(&result,self->mat,r_start,c_start,
+            r_stop-r_start,c_stop-c_start);
     }
+
+
+
+    
+    return result;
+}
+
+/*
+ * Given a numc.Matrix `self`, index into it with `key`. Return the indexed result.
+ */
+PyObject *Matrix61c_subscript(Matrix61c* self, PyObject* key) {
+    matrix *result;
+    result = subsript(self,key);
     Matrix61c *remat = (Matrix61c *) Matrix61c_new(&Matrix61cType,NULL,NULL);
     remat->mat = result;
     remat->shape = get_shape(result->rows,result->cols);
-    return (PyObject *)remat;
+    return (PyObject *) remat;
 }
 
+int set_1d(matrix *mat, PyObject *lst) {
+    int rows,cols;
+    rows = mat->rows;
+    cols = mat->cols;
+    if (rows * cols != PyList_Size(lst)) {
+        PyErr_SetString(PyExc_ValueError, "Incorrect number of elements in list");
+        return -1;
+    }
+    int count = 0;
+    
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            set(mat, i, j, PyFloat_AsDouble(PyList_GetItem(lst, count)));
+            count++;
+        }
+    }
+    return 0;
+}
+
+/*
+ * Matrix(2d_list). Fill a matrix with dimension len(2d_list) * len(2d_list[0])
+ */
+int set_2d(matrix *mat,PyObject *lst) {
+    int rows = PyList_Size(lst);
+    if (rows == 0) {
+        PyErr_SetString(PyExc_ValueError,
+                        "Cannot initialize numc.Matrix with an empty list");
+        return -1;
+    }
+    int cols;
+    if (!PyList_Check(PyList_GetItem(lst, 0))) {
+        PyErr_SetString(PyExc_ValueError, "List values not valid");
+        return -1;
+    } else {
+        cols = PyList_Size(PyList_GetItem(lst, 0));
+    }
+    int mrows,mcols;
+    mrows = mat->rows;
+    mcols = mat->cols;
+    if (mrows!=rows || mcols!=cols)
+        PyErr_SetString(PyExc_ValueError, "size not fit");
+    for (int i = 0; i < rows; i++) {
+        if (!PyList_Check(PyList_GetItem(lst, i)) ||
+                PyList_Size(PyList_GetItem(lst, i)) != cols) {
+            PyErr_SetString(PyExc_ValueError, "List values not valid");
+            return -1;
+        }
+    }
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            set(mat, i, j,
+                PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(lst, i), j)));
+        }
+    }
+    return 0;
+}
 /*
  * Given a numc.Matrix `self`, index into it with `key`, and set the indexed result to `v`.
  */
 int Matrix61c_set_subscript(Matrix61c* self, PyObject *key, PyObject *v) {
-    /* TODO: YOUR CODE HERE */
+    matrix *mat;
+    mat = subsript(self,key);
+
+    return 0;
 }
 
 PyMappingMethods Matrix61c_mapping = {
