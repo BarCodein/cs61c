@@ -550,39 +550,16 @@ matrix *subsript(Matrix61c* self, PyObject* key){
     int rows, cols;
     rows = self->mat->rows;
     cols = self->mat->cols;
-    PyObject *prows, *pcols;
-    prows = NULL;
-    pcols = NULL;
+    
     if (PyTuple_Check(key)){
-        int t_size;
-        t_size = PyTuple_Size(key);
-        if (t_size!=2 && t_size!=1)
+        if (self->mat->is_1d == 1 && PyTuple_Size(key)==2)
             PyErr_SetString(PyExc_IndexError,"IndexError");
-        if (self->mat->is_1d == 1 && t_size==2)
-            PyErr_SetString(PyExc_IndexError,"IndexError");
-        
-
-        if(!PyArg_UnpackTuple(key,"f",1,2,&prows,&pcols))
-            PyErr_SetString(PyExc_RuntimeError,"IndexError");
-        
-        prows = PyTuple_GetItem(key,0);
-        if(t_size == 2)
-            pcols = PyTuple_GetItem(key,1);
-    }
-    else{
-        prows = key;
     }
     
     int r_start,r_stop,c_start,c_stop;
+    parse(key,rows,cols,&r_start,&r_stop,&c_start,&c_stop);
+    
     matrix *result;
-    if (PyLong_Check(prows)){
-        r_start = (int)PyLong_AsLong(prows);
-        r_stop = r_start+1;
-    }
-    if (PySlice_Check(prows)){
-        int t;
-        PySlice_GetIndices(prows,rows,&r_start,&r_stop,&t);
-    }
     if (self->mat->is_1d){
         if (rows==1)
             allocate_matrix_ref(&result,self->mat,0,r_start,1,r_stop-r_start);
@@ -590,27 +567,10 @@ matrix *subsript(Matrix61c* self, PyObject* key){
             allocate_matrix_ref(&result,self->mat,r_start,0,r_stop-r_start,1);
     }
     else{
-        if (pcols==NULL){
-            c_start = 0;
-            c_stop = cols;
-        }
-        else{
-            if (PyLong_Check(pcols)){
-                c_start = (int)PyLong_AsLong(pcols);
-                c_stop = c_start+1;
-            }
-            if (PySlice_Check(pcols)){
-                int t;
-                PySlice_GetIndices(pcols,cols,&c_start,&c_stop,&t);
-            }
-        }
         allocate_matrix_ref(&result,self->mat,r_start,c_start,
             r_stop-r_start,c_stop-c_start);
     }
 
-
-
-    
     return result;
 }
 
