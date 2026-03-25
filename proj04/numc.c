@@ -511,6 +511,13 @@ int slice(PyObject *p,int length,int *start,int *stop){
     else
         PyErr_SetString(PyExc_ValueError, 
             "Incorrect input");
+    
+    if (t_start<0 || t_start>=length || t_stop<0 || t_stop>length){
+        printf("%d %d %d\n",t_start,t_stop,length);
+        PyErr_SetString(PyExc_ValueError, 
+            "Index out of range");
+        
+    }
     *start = t_start;
     *stop = t_stop;
     return 0;
@@ -537,7 +544,10 @@ int parse(PyObject* key,int rows,int cols,int *rstart,
     else{
         prows = key;
     }
-    
+    if (rows==1){
+        rows = cols;
+        cols = 1;
+    }
     Py_ssize_t r_start,r_stop,c_start,c_stop;
     slice(prows,rows,&r_start,&r_stop);
     slice(pcols,cols,&c_start,&c_stop);
@@ -560,6 +570,7 @@ matrix *subsript(Matrix61c* self, PyObject* key){
     
     int r_start,r_stop,c_start,c_stop;
     parse(key,rows,cols,&r_start,&r_stop,&c_start,&c_stop);
+
 
     matrix *result;
     if (self->mat->is_1d){
@@ -586,6 +597,14 @@ PyObject *Matrix61c_subscript(Matrix61c* self, PyObject* key) {
     remat->mat = result;
     remat->shape = get_shape(result->rows,result->cols);
     return (PyObject *) remat;
+}
+
+int set_0d(matrix *mat, PyObject *value){
+    if(!PyLong_Check(value))
+        PyErr_SetString(PyExc_ValueError, "input should be a number");
+    double v = PyLong_AsDouble(value);
+    set(mat,0,0,v);
+    return 0;
 }
 
 int set_1d(matrix *mat, PyObject *lst) {
@@ -651,6 +670,13 @@ int Matrix61c_set_subscript(Matrix61c* self, PyObject *key, PyObject *v) {
     matrix *mat;
     mat = subsript(self,key);
     int r_start,r_stop,c_start,c_stop;
+    parse(key,self->mat->rows,self->mat->cols,&r_start,&r_stop,&c_start,&c_stop);
+    if (r_stop-r_start==1 && c_stop-c_start==1)
+        set_0d(mat,v);
+    else if(r_stop-r_start==1 || c_stop-c_start==1)
+        set_1d(mat,v);
+    else
+        set_2d(mat,v);
     return 0;
 }
 
