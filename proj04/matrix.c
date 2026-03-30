@@ -184,7 +184,7 @@ void deallocate_matrix(matrix *mat) {
  */
 double get(matrix *mat, int row, int col) {
 	double result;
-	result = *((*(mat->data+row))+col);
+	result = *((*(mat->data+row))+col); 
 	return result;
 }
 
@@ -213,9 +213,11 @@ void fill_matrix(matrix *mat, double val) {
 int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 	int rows = mat1->rows;
 	int cols = mat1->cols;
+	#pragma omp  for
 	for(int i=0;i<rows;i++)
+		// #pragma omp for
 		for(int j=0;j<cols;j++){
-			int a,b;
+			double a,b;
 			a = get(mat1,i,j);
 			b = get(mat2,i,j);
 			set(result,i,j,a+b);
@@ -232,7 +234,7 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 	int cols = mat1->cols;
 	for(int i=0;i<rows;i++)
 		for(int j=0;j<cols;j++){
-			int a,b;
+			double a,b;
 			a = get(mat1,i,j);
 			b = get(mat2,i,j);
 			set(result,i,j,a-b);
@@ -246,21 +248,23 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  * Return 0 upon success and a nonzero value upon failure.
  * Remember that matrix multiplication is not the same as multiplying individual elements.
  */
+
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 	int rows = mat1->rows;
 	int cols = mat2->cols;
 	int num = mat1->cols;
 	if (mat1->cols != mat2->rows)
 		return -1;
-	for(int i=0;i<rows;i++)
-		for(int j=0;j<cols;j++){
-			int sum=0;
-			for(int k=0;k<num;k++){
-				int a = get(mat1,i,k);
-				int b = get(mat2,k,j);
-				sum += a*b;
+	fill_matrix(result,0);
+	for(int j=0;j<cols;j++)
+		for(int k=0;k<num;k++){
+			for(int i=0;i<rows;i++){
+				double a = get(mat1,i,k);
+				double b = get(mat2,k,j);
+				double sum = get(result,i,j);
+				sum+=a*b;
+				set(result,i,j,sum);
 			}
-			set(result,i,j,sum);
 		}
 	return 0;
 }
@@ -306,7 +310,7 @@ int neg_matrix(matrix *result, matrix *mat) {
 	int cols = mat->cols;
 	for(int i=0;i<rows;i++)
 		for(int j=0;j<cols;j++){
-			int a;
+			double a;
 			a = get(mat,i,j);
 			set(result,i,j,-a);
 		}
@@ -323,7 +327,7 @@ int abs_matrix(matrix *result, matrix *mat) {
 	int cols = mat->cols;
 	for(int i=0;i<rows;i++)
 		for(int j=0;j<cols;j++){
-			int a;
+			double a;
 			a = get(mat,i,j);
 			set(result,i,j,abs(a));
 		}
